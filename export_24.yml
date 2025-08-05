@@ -1,0 +1,91 @@
+---
+- name: Output Automation Controller Configs
+  hosts: aap-dev
+  gather_facts: false
+  vars:
+    controller_username: ""
+    controller_password: ""
+    controller_hostname: ""
+    aap_validate_certs: "false"
+    controller_validate_certs: "false"
+    output_path: ""
+    flatten_output: true
+    controller_api_plugin: awx.awx.controller_api
+
+  pre_tasks:
+    - name: "Setup authentication (block)"
+      no_log: "{{ controller_configuration_filetree_create_secure_logging | default('false') }}"
+      when: aap_oauthtoken is not defined
+      tags:
+        - always
+      block:
+        - name: "Get the Authentication Token for the future requests"
+          ansible.builtin.uri:
+            url: "https://{{ controller_hostname }}/api/v2/tokens/"
+            user: "{{ controller_username }}"
+            password: "{{ controller_password }}"
+            method: POST
+            force_basic_auth: true
+            validate_certs: "{{ aap_validate_certs }}"
+            status_code: 201
+          register: authtoken_res
+
+        - name: "Set the oauth token to be used since now"
+          ansible.builtin.set_fact:
+            aap_oauthtoken: "{{ authtoken_res.json.token }}"
+            controller_oauthtoken: "{{ authtoken_res.json.token }}"
+            aap_oauthtoken_url: "{{ authtoken_res.json.url }}"
+
+    - name: Recursively remove output directory
+      ansible.builtin.file:
+        path: "{{ output_path }}"
+        state: absent
+
+  roles:
+    - infra.controller_configuration.filetree_create
+
+  post_tasks:
+    - name: "Delete the Authentication Token used"
+      ansible.builtin.uri:
+        url: "https://{{ controller_hostname }}{{ aap_oauthtoken_url }}"
+        user: "{{ controller_username }}"
+        password: "{{ controller_password }}"
+        method: DELETE
+        force_basic_auth: true
+        validate_certs: "{{ controller_validate_certs }}"
+        status_code: 204
+      when: aap_oauthtoken_url is defined
+
+    - name: Read hosts.yaml file into variable
+      ansible.builtin.slurp:
+        src: "{{ output_path }}/hosts.yaml"
+      register: file_content
+
+    - name: Decode file content from base64
+      ansible.builtin.set_fact:
+        decoded_content: "{{ file_content.content | b64decode }}"
+
+    - name: Remove all occurrences of '---\ncontroller_hosts:'
+      ansible.builtin.set_fact:
+        updated_content: "{{ decoded_content | regex_replace('---\ncontroller_hosts:\n', '') }}"
+
+    - name: Add '---\ncontroller_hosts:' to the top of the file content
+      ansible.builtin.set_fact:
+        updated_content: |
+          ---
+          controller_hosts:
+          {{ updated_content }}
+
+    - name: Write the updated content back to hosts.yaml
+      ansible.builtin.copy:
+        dest: "{{ output_path }}/hosts.yaml"
+        content: "{{ updated_content }}"
+        mode: '0644'
+
+    - name: Remove lines containing "..."
+      ansible.builtin.lineinfile:
+        path: "{{ output_path }}/job_templates.yaml"
+        regexp: "\\.\\.\\."
+        state: absent
+
+...

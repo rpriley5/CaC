@@ -1,0 +1,28 @@
+---
+- name: Import Automation Controller Configs
+  hosts: all
+  gather_facts: false
+  vars:
+    # Overwrite for when testing locally or attach tower creds to overwrite
+    username: "USERNAME"
+    password: "PASSWORD"
+    import_controller_host: "IMPORT_CONTROLLER_HOST"
+
+    controller_username: "{{ username }}"
+    controller_password: "{{ password }}"
+    controller_hostname: "{{ import_controller_host }}"
+    controller_validate_certs: false
+
+  roles:
+    - {role: infra.controller_configuration.credential_types, when: controller_credential_types is defined}
+    - {role: infra.controller_configuration.settings, when: controller_settings is defined}
+    - {role: infra.controller_configuration.organizations, when: controller_organizations is defined}
+    - {role: infra.controller_configuration.credentials, when: import_creds and controller_credentials is defined}
+    - {role: infra.controller_configuration.projects, when: controller_projects is defined}
+    - {role: infra.controller_configuration.execution_environments, when: controller_execution_environments is defined, ignore_errors: true}
+    - {role: infra.controller_configuration.inventories, when: controller_inventories is defined}
+    - {role: infra.controller_configuration.inventory_sources, when: controller_inventory_sources is defined}
+    - {role: infra.controller_configuration.hosts, when: controller_hosts is defined}
+    - {role: infra.controller_configuration.job_templates, when: controller_templates is defined}
+
+...
