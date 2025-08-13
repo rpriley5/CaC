@@ -1,17 +1,18 @@
 ---
 - name: Output Automation Controller Configs
-  hosts: aap-dev
+  hosts: localhost
   gather_facts: false
-  vars:
-    aap_username: ""
-    aap_password: ""
-    aap_hostname: ""
-    aap_validate_certs: "false"
-    controller_validate_certs: "false"
-    output_path: ""
-    flatten_output: true
-
+  vars_files:
+    - vars.yml
   pre_tasks:
+    - name: Assert defined variables
+      ansible.builtin.assert:
+        that:
+          - aap_hostname is defined
+          - aap_username is defined
+          - aap_password is defined
+        fail_msg: "You must define aap_hostname, aap_username, and aap_password in vars.yml."
+
     - name: "Setup authentication (block)"
       no_log: "{{ controller_configuration_filetree_create_secure_logging | default('false') }}"
       when: aap_oauthtoken is not defined
@@ -86,11 +87,4 @@
         path: "{{ output_path }}/controller_job_templates.yaml"
         regexp: "\\.\\.\\."
         state: absent
-
-    # - name: Insert blank line before any instance of "- name:"
-    #   ansible.builtin.replace:
-    #     path: "{{ output_path }}/eda_credential_types.yaml"
-    #     regexp: '(^|\n)(\s*)- name:'
-    #     replace: '\1\2\n\2- name:'
-
 ...

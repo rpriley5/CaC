@@ -1,17 +1,9 @@
 ---
 - name: Output Automation Controller Configs
-  hosts: aap-dev
+  hosts: localhost
   gather_facts: false
-  vars:
-    controller_username: ""
-    controller_password: ""
-    controller_hostname: ""
-    aap_validate_certs: "false"
-    controller_validate_certs: "false"
-    output_path: ""
-    flatten_output: true
-    controller_api_plugin: awx.awx.controller_api
-
+  vars_files:
+    - vars.yml
   pre_tasks:
     - name: "Setup authentication (block)"
       no_log: "{{ controller_configuration_filetree_create_secure_logging | default('false') }}"

@@ -1,18 +1,17 @@
 ---
 - name: Import Automation Controller Configs
-  hosts: all
+  hosts: localhost
   gather_facts: false
-  vars:
-    # Overwrite for when testing locally or attach tower creds to overwrite
-    username: "USERNAME"
-    password: "PASSWORD"
-    import_controller_host: "IMPORT_CONTROLLER_HOST"
-
-    controller_username: "{{ username }}"
-    controller_password: "{{ password }}"
-    controller_hostname: "{{ import_controller_host }}"
-    controller_validate_certs: false
-
+  vars_files:
+    - vars.yml
+  pre_tasks:
+    - name: Assert defined variables
+      ansible.builtin.assert:
+        that:
+          - aap_hostname is defined
+          - aap_username is defined
+          - aap_password is defined
+        fail_msg: "You must define aap_hostname, aap_username, and aap_password in vars.yml."
   roles:
     - {role: infra.controller_configuration.credential_types, when: controller_credential_types is defined}
     - {role: infra.controller_configuration.settings, when: controller_settings is defined}
